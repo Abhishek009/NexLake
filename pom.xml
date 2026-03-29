@@ -2,7 +2,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.sdf</groupId>
-    <artifactId>SparkDataFlow</artifactId>
+    <artifactId>NexLake</artifactId>
     <version>1.0.0</version>
     <name>${project.artifactId}</name>
     <packaging>jar</packaging>
@@ -202,7 +202,7 @@
     </dependencies>
 
     <build>
-        <finalName>SparkDataFlow</finalName>
+        <finalName>NexLake</finalName>
         <sourceDirectory>src/main/scala</sourceDirectory>
         <plugins>
             <plugin>

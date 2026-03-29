@@ -1,4 +1,4 @@
-# SparkDataFlow
+# NexLake
 
 A modular ETL framework in Scala supporting YAML-based job configuration, Spark transformations, and flexible input/output sources.
 
