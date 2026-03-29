@@ -1,0 +1,25 @@
+jobName: FileToFile
+engine: spark
+job:
+  - input:
+      name: action
+      type: file
+      identifier: local
+      path: "/sample_data/action.csv"
+      option: |
+        delimiter=,
+        header=true
+
+  - transform:
+      name: t1
+      inputs: action
+      query: "Select count(*),year from action group by year"
+      output: out-01
+
+  - output:
+      name: out-01
+      type: file
+      identifier: local
+      path: "/output_data/action_count_by_year.csv"
+      output-format: csv
+

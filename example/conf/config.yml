@@ -1,0 +1,41 @@
+
+
+jdbc:
+    mysql:
+      username: root
+      password: root
+      url: jdbc:mysql://localhost:3306
+      database: sdf_schema
+      driver: com.mysql.cj.jdbc.Driver
+
+    duckdb_local:
+      url: jdbc:duckdb:D:\SampleData\Output\duckdb\my_database.duckdb
+      username: ""
+      password: ""
+
+    postgres:
+      username: postgres
+      password: root
+      url: jdbc:postgresql://localhost:5432
+      database: dvdrental
+      driver: org.postgresql.Driver
+
+    sqlserver:
+      username: SqlDbAdmin
+      password: YOURPASSWORD
+      url: jdbc:sqlserver://my-first-azure-sql-server.database.windows.net:1433;database=my-first-azure-db;encrypt=true;trustServerCertificate=true;
+      driver: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+file:
+  - local:
+           location: D:\SampleData\IPL\matches.csv
+  - dbfs:
+
+hive:
+
+databricks:
+  dev:
+    host: yourorg.databrickshost.com # Required
+    http_path: /sql/your/http/path # Required
+    token: dapiXXXXXXXXXXXXXXXXXXXXXXX # Required Personal Access Token (PAT) if using token-based authentication
+    spark_config: "D:/Google_Drive_Rahul/GitHub/SparkDataFlow/src/main/resources/sdf.conf"

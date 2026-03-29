@@ -1,0 +1,13 @@
+jobName: error_test
+engine: duckdb
+
+inputs:
+  - name: dataset
+    type: parquet
+    table: data/input.parquet
+
+transforms:
+  - name: t1
+    inputs: [dataset]
+    sql: |
+      SELECT unknown_column FROM dataset

@@ -1,0 +1,28 @@
+# Input: Sql Database
+# Transform: Select operation
+# Output: Writes the output of transformation  to mysql table
+
+jobName: MySqlToMySql
+engine: spark
+job:
+  - input:
+      df-name: mysql_table
+      type: jdbc
+      identifier: mysql
+      table: sdf_framework_source_one
+      schema: sdf_schema
+
+  - transform:
+      name: t1
+      inputs: mysql_table
+      query: "Select * from mysql_table limit 12"
+      output: out-01
+
+  - output:
+      name: out-01
+      type: jdbc
+      identifier: mysql
+      table: sdf_framework_output_one
+      schema: sdf_schema
+      mode: append
+

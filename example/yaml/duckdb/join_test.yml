@@ -1,0 +1,27 @@
+jobName: join_test
+engine: duckdb
+
+inputs:
+  - name: orders
+    type: parquet
+    table: data/orders.parquet
+
+  - name: customers
+    type: parquet
+    table: data/customers.parquet
+
+transforms:
+  - name: joined
+    inputs: [orders, customers]
+    sql: |
+      SELECT o.order_id, c.customer_name
+      FROM orders o
+      JOIN customers c
+      ON o.customer_id = c.customer_id
+
+outputs:
+  - name: out
+    input: joined
+    type: parquet
+    table: data/join_output.parquet
+    mode: overwrite

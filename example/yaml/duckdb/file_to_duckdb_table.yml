@@ -1,0 +1,15 @@
+jobName: file_to_duckdb_table
+engine: duckdb
+
+inputs:
+  - name: input_file
+    type: parquet
+    table: data/input.parquet
+
+outputs:
+  - name: duck_table
+    input: input_file
+    type: jdbc
+    identifier: duckdb
+    table: test_table
+    mode: overwrite

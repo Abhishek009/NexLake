@@ -1,0 +1,24 @@
+jobName: FileToDuckDB
+engine: duckdb
+job:
+  - input:
+      name: action
+      type: file
+      identifier: local
+      path: "D:/SampleData/input/movies/*"
+      option: |
+        delimiter=,
+        header=true
+
+  - transform:
+      name: t1
+      inputs: action
+      query: "Select * from action where year > 2022+/lkjhgfdsa  order by year"
+      output: out-01
+
+  - output:
+      name: out-01
+      type: file
+      identifier: local
+      path: "D:/SampleData/output/action_count_by_year_2000.csv"
+      output_format: csv

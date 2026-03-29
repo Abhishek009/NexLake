@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Flow Lineage</title>
+    <!-- Tailwind CSS for basic styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #e2e8f0; /* Lighter grey-blue background */
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-x: hidden; /* Prevent horizontal scroll when panel is out */
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 16px; /* More rounded corners */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); /* Stronger shadow */
+            padding: 40px; /* More padding */
+            max-width: 95%; /* Slightly wider */
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative; /* For side panel positioning */
+        }
+        .diagram-wrapper {
+            position: relative; /* For positioning zoom controls relative to this wrapper */
+            width: 100%;
+            height: auto;
+            min-height: 350px;
+            margin-top: 20px;
+            border-radius: 12px;
+            background-color: #f8fafc;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.08);
+        }
+        svg {
+            width: 100%;
+            height: 100%; /* Fill the wrapper */
+            display: block; /* Remove extra space below SVG */
+        }
+        .node-rect {
+            fill: #60a5fa; /* Medium blue */
+            stroke: #2563eb; /* Darker blue border */
+            stroke-width: 2;
+            rx: 10; /* More rounded corners */
+            ry: 10;
+            transition: all 0.3s ease-in-out; /* Smooth transition for hover effects */
+            filter: drop-shadow(3px 3px 6px rgba(0,0,0,0.2)); /* Drop shadow for depth */
+        }
+        .node-group.clickable {
+            cursor: grab; /* Grab cursor for clickable/draggable nodes */
+        }
+        .node-group.dragging {
+            cursor: grabbing; /* Grabbing cursor when dragging */
+        }
+        .node-group:hover .node-rect {
+            fill: #3b82f6; /* Darker blue on hover */
+            transform: translateY(-3px); /* Lift effect on hover */
+            filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.3));
+        }
+        .node-text {
+            font-family: "Inter", sans-serif;
+            font-size: 13px; /* Adjusted font size for details */
+            fill: #ffffff; /* White text for contrast on blue background */
+        }
+        .node-text .main-label {
+            font-size: 16px; /* Larger font for main label */
+            font-weight: bold;
+        }
+        .arrow-line {
+            stroke: #1e3a8a; /* Darker blue for arrows */
+            stroke-width: 3; /* Thicker arrows */
+            marker-end: url(#arrowhead);
+            transition: stroke 0.3s ease-in-out;
+        }
+        .arrow-line:hover {
+            stroke: #0c4a6e; /* Even darker blue on hover */
+        }
+        #arrowhead {
+            fill: #1e3a8a; /* Darker blue for arrowhead */
+            transition: fill 0.3s ease-in-out;
+        }
+        .arrow-line:hover #arrowhead {
+            fill: #0c4a6e;
+        }
+        h1 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 2.5rem; /* Larger title */
+            font-weight: 700;
+        }
+
+        /* Side Panel Styles */
+        .side-panel {
+            position: fixed;
+            top: 0;
+            right: -350px; /* Hidden by default */
+            width: 350px;
+            height: 100%;
+            background-color: #ffffff;
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
+            transition: right 0.3s ease-in-out;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto; /* Enable scrolling for long content */
+        }
+        .side-panel.open {
+            right: 0; /* Slide in */
+        }
+        .side-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0; /* Prevent header from shrinking */
+        }
+        .side-panel-header h2 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        .side-panel-close {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            color: #4a5568;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 8px;
+            transition: background-color 0.2s ease;
+        }
+        .side-panel-close:hover {
+            background-color: #f0f2f5;
+        }
+        .side-panel-content p {
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            color: #4a5568;
+            word-wrap: break-word; /* Ensure long paths wrap */
+        }
+        .side-panel-content strong {
+            color: #2d3748;
+        }
+        .side-panel-content pre {
+            background-color: #f0f2f5;
+            padding: 10px;
+            border-radius: 8px;
+            overflow-x: auto; /* For long code snippets */
+            font-size: 0.85rem;
+            color: #333;
+        }
+        /* HTML Zoom Controls Styling */
+        .html-zoom-controls {
+            position: absolute;
+            top: 15px; /* Adjust as needed */
+            right: 15px; /* Adjust as needed */
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10; /* Ensure they are above the SVG */
+        }
+        .html-zoom-controls button {
+            width: 36px; /* Increased size slightly */
+            height: 36px;
+            border-radius: 50%; /* Circular buttons */
+            background-color: #4a5568;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        .html-zoom-controls button:hover {
+            background-color: #2d3748;
+            transform: translateY(-1px);
+        }
+        .html-zoom-controls button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .html-zoom-controls button.reset-btn {
+            font-size: 16px; /* Adjust font size for house icon */
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="text-3xl font-bold">Data Flow Lineage</h1>
+
+    <div id="diagram-wrapper" class="diagram-wrapper">
+        <svg id="flowDiagram" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="8" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#1e3a8a" />
+                </marker>
+            </defs>
+            <!-- Diagram elements will be appended here by JavaScript -->
+        </svg>
+
+        <!-- HTML Zoom Controls -->
+        <div class="html-zoom-controls">
+            <button id="zoomInBtn">+</button>
+            <button id="zoomOutBtn">-</button>
+            <button id="resetZoomBtn" class="reset-btn">🏠</button>
+        </div>
+    </div>
+</div>
+
+<!-- Side Panel HTML -->
+<div id="sidePanel" class="side-panel">
+    <div class="side-panel-header">
+        <h2 id="panelTitle">Details</h2>
+        <button id="closePanel" class="side-panel-close">&times;</button>
+    </div>
+    <div id="panelContent" class="side-panel-content">
+        <!-- Content will be populated by JavaScript -->
+    </div>
+</div>
+
+<script>
+    // The YAML structure provided by the user
+    const yamlData = {
+        jobName: "DatabricksJob",
+        engine: "databricks",
+        job: [
+            {
+                input: {
+                    "df-name": "dbread",
+                    type: "databricks",
+                    identifier: "dev",
+                    table: "deliveries",
+                    schema: "ipl"
+                }
+            },
+            {
+                input: {
+                    "df-name": "fileread",
+                    type: "file",
+                    identifier: "local",
+                    format: "csv",
+                    option: "header=true\ndelimiter=,",
+                    path: "D:/SampleData/IPL/matches.csv"
+                }
+            },
+            {
+                transform: {
+                    "df-name": "t1",
+                    t_inputs: "dbread,fileread",
+                    query: "--file D:/Google_Drive_Rahul/GitHub/SparkDataFlow/sql/sample.sql",
+                    output: "out-01"
+                }
+            },
+            {
+                output: {
+                    "df-name": "out-01",
+                    type: "file",
+                    identifier: "adfss",
+                    partition: "ods",
+                    output_format: "csv",
+                    option: "mergeSchema=true\ndoSomething=yes",
+                    path: "D:\\SampleData\\mysql_sample_data_1"
+                }
+            },
+            {
+                output: {
+                    "df-name": "out-01",
+                    type: "databricks",
+                    identifier: "dev",
+                    output_format: "csv",
+                    schema: "deliveries",
+                    table: "iploutput"
+                }
+            }
+        ]
+    };
+
+    const svgElement = document.getElementById('flowDiagram');
+    const sidePanel = document.getElementById('sidePanel');
+    const panelTitle = document.getElementById('panelTitle');
+    const panelContent = document.getElementById('panelContent');
+    const closePanelBtn = document.getElementById('closePanel');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const resetZoomBtn = document.getElementById('resetZoomBtn');
+
+    const initialSvgWidth = 900;
+    const initialSvgHeight = 600;
+    const nodeWidth = 200;
+    const nodeHeight = 130;
+    const columnSpacing = 150;
+    const verticalNodePadding = 30;
+    const TEXT_PADDING_LEFT = 15;
+    const MAX_TEXT_LENGTH = 35;
+    const ZOOM_FACTOR = 1.2; // How much to zoom in/out by
+
+    let currentViewBox = {
+        x: 0,
+        y: 0,
+        width: initialSvgWidth,
+        height: initialSvgHeight
+    };
+
+    // Global state for draggable nodes and edges
+    let allNodes = [];
+    let allEdges = [];
+    let draggedNode = null;
+    let offsetX, offsetY; // Offset from mouse pointer to node's top-left corner
+
+    /**
+     * Helper to create SVG elements
+     * @param {string} tagName - The SVG element tag name (e.g., 'rect', 'text', 'line').
+     * @param {object} attributes - Object containing attributes for the SVG element.
+     * @returns {SVGElement} The created SVG element.
+     */
+    function createSvgElement(tagName, attributes = {}) {
+        const element = document.createElementNS('http://www.w3.org/2000/svg', tagName);
+        for (const key in attributes) {
+            element.setAttribute(key, attributes[key]);
+        }
+        return element;
+    }
+
+    /**
+     * Creates an SVG text element with multi-line support using tspan.
+     * @param {number} nodeX - X coordinate of the node's top-left corner.
+     * @param {number} nodeY - Y coordinate of the node's top-left corner.
+     * @param {number} nodeWidth - Width of the node.
+     * @param {number} nodeHeight - Height of the node.
+     * @param {Array<Object>} linesData - Array of objects, each with { text: string, className: string, alignment: string, fullText: string }.
+     * @param {string} baseClassName - Base CSS class for styling.
+     * @param {number} lineHeight - Height of each line for vertical spacing.
+     * @returns {SVGElement} The created text element.
+     */
+    function createMultiLineText(nodeX, nodeY, nodeWidth, nodeHeight, linesData, baseClassName, lineHeight = 20) {
+        const textGroup = createSvgElement('text', { class: baseClassName });
+
+        const totalTextHeight = linesData.length * lineHeight;
+        const startY = nodeY + (nodeHeight / 2) - (totalTextHeight / 2) + (lineHeight / 2);
+
+        linesData.forEach((line, i) => {
+            const tspan = createSvgElement('tspan');
+            let currentX;
+
+            if (line.alignment === 'start') {
+                tspan.setAttribute('text-anchor', 'start');
+                currentX = nodeX + TEXT_PADDING_LEFT;
+            } else { // Default to middle
+                tspan.setAttribute('text-anchor', 'middle');
+                currentX = nodeX + nodeWidth / 2;
+            }
+
+            tspan.setAttribute('x', currentX);
+            tspan.setAttribute('y', startY + (i * lineHeight));
+            tspan.textContent = line.text;
+
+            if (line.className) {
+                tspan.setAttribute('class', line.className);
+            }
+            if (line.fullText) {
+                tspan.setAttribute('title', line.fullText);
+            }
+            textGroup.appendChild(tspan);
+        });
+        return textGroup;
+    }
+
+    /**
+     * Draws a node (rectangle with text) on the SVG.
+     * This function now only creates the SVG elements. Node data is managed globally.
+     * @param {object} node - The node object from the allNodes array.
+     */
+    function drawNodeSvg(node) {
+        const group = createSvgElement('g', {
+            id: node.id, // Set ID on the group for easy lookup during drag
+            transform: `translate(${node.x}, ${node.y})`,
+            class: 'node-group clickable'
+        });
+
+        const rect = createSvgElement('rect', {
+            x: 0,
+            y: 0,
+            width: node.width,
+            height: node.height,
+            class: 'node-rect'
+        });
+        group.appendChild(rect);
+
+        const text = createMultiLineText(0, 0, node.width, node.height, node.data.labelLines, 'node-text');
+        group.appendChild(text);
+
+        group.addEventListener('mousedown', startDrag);
+        group.addEventListener('click', (e) => {
+            // Prevent click from triggering panel if it was part of a drag
+            if (!group.classList.contains('dragging')) {
+                openSidePanel(node.data.rawData, node.data.type);
+            }
+        });
+
+        node.svgGroupElement = group; // Store reference to the SVG group element
+        svgElement.appendChild(group);
+    }
+
+    /**
+     * Draws an arrow between two nodes.
+     * This function now only creates the SVG elements. Edge data is managed globally.
+     * @param {object} edge - The edge object from the allEdges array.
+     */
+    function drawArrowSvg(edge) {
+        const sourceNode = allNodes.find(n => n.id === edge.sourceNodeId);
+        const targetNode = allNodes.find(n => n.id === edge.targetNodeId);
+
+        if (!sourceNode || !targetNode) return; // Should not happen if data is consistent
+
+        const line = createSvgElement('line', {
+            x1: sourceNode.x + sourceNode.width,
+            y1: sourceNode.y + sourceNode.height / 2,
+            x2: targetNode.x,
+            y2: targetNode.y + targetNode.height / 2,
+            class: 'arrow-line',
+            'marker-end': 'url(#arrowhead)'
+        });
+        edge.svgLineElement = line; // Store reference to the SVG line element
+        svgElement.appendChild(line);
+    }
+
+    /**
+     * Opens the side panel and populates it with node details.
+     * @param {object} rawData - The raw data for the clicked node.
+     * @param {string} nodeType - The type of node ('input', 'transform', 'output').
+     */
+    function openSidePanel(rawData, nodeType) {
+        panelContent.innerHTML = ''; // Clear previous content
+
+        if (nodeType === 'input') {
+            panelTitle.textContent = `Input Details: ${rawData.input['df-name']}`;
+            let content = `
+                <p><strong>Type:</strong> ${rawData.input.type}</p>
+                <p><strong>Identifier:</strong> ${rawData.input.identifier}</p>
+            `;
+            if (rawData.input.type === 'file') {
+                content += `<p><strong>Format:</strong> ${rawData.input.format}</p>`;
+                content += `<p><strong>Path:</strong> ${rawData.input.path}</p>`;
+                content += `<p><strong>Options:</strong> <pre>${rawData.input.option}</pre></p>`;
+            } else if (rawData.input.type === 'databricks') {
+                content += `<p><strong>Table:</strong> ${rawData.input.table}</p>`;
+                content += `<p><strong>Schema:</strong> ${rawData.input.schema}</p>`;
+            } else if (rawData.input.type === 'api') {
+                content += `<p><strong>Path:</strong> ${rawData.input.path}</p>`;
+                content += `<p><strong>Options:</strong> <pre>${rawData.input.option}</pre></p>`;
+            }
+            panelContent.innerHTML = content;
+
+        } else if (nodeType === 'transform') {
+            panelTitle.textContent = `Transform Details: ${rawData.transform['df-name']}`;
+            let content = `
+                <p><strong>Input Dataframes:</strong> ${rawData.transform.t_inputs}</p>
+                <p><strong>Output Dataframe:</strong> ${rawData.transform.output}</p>
+            `;
+            if (rawData.transform.query.startsWith('--file')) {
+                content += `<p><strong>Query Source:</strong> File</p>`;
+                content += `<p><strong>File Path:</strong> <pre>${rawData.transform.query.replace('--file ', '').trim()}</pre></p>`;
+            } else {
+                content += `<p><strong>Query:</strong> <pre>${rawData.transform.query}</pre></p>`;
+            }
+            panelContent.innerHTML = content;
+
+        } else if (nodeType === 'output') {
+            panelTitle.textContent = `Output Details: ${rawData.output['df-name']}`;
+            let content = `
+                <p><strong>Type:</strong> ${rawData.output.type}</p>
+                <p><strong>Identifier:</strong> ${rawData.output.identifier}</p>
+            `;
+            if (rawData.output.type === 'file') {
+                content += `<p><strong>Partition:</strong> ${rawData.output.partition}</p>`;
+                content += `<p><strong>Output Format:</strong> ${rawData.output.output_format}</p>`;
+                content += `<p><strong>Path:</strong> ${rawData.output.path}</p>`;
+                content += `<p><strong>Options:</strong> <pre>${rawData.output.option}</pre></p>`;
+            } else if (rawData.output.type === 'databricks' || rawData.output.type === 'jdbc') {
+                content += `<p><strong>Output Format:</strong> ${rawData.output.output_format}</p>`;
+                content += `<p><strong>Schema:</strong> ${rawData.output.schema}</p>`;
+                content += `<p><strong>Table:</strong> ${rawData.output.table}</p>`;
+            }
+            panelContent.innerHTML = content;
+        }
+        sidePanel.classList.add('open');
+    }
+
+    /**
+     * Closes the side panel.
+     */
+    function closeSidePanel() {
+        console.log("closeSidePanel called"); // Debugging line
+        sidePanel.classList.remove('open');
+    }
+
+    // --- Zoom Functions ---
+    function updateViewBox() {
+        svgElement.setAttribute('viewBox', `${currentViewBox.x} ${currentViewBox.y} ${currentViewBox.width} ${currentViewBox.height}`);
+    }
+
+    function zoomIn() {
+        const newWidth = currentViewBox.width / ZOOM_FACTOR;
+        const newHeight = currentViewBox.height / ZOOM_FACTOR;
+        currentViewBox.x += (currentViewBox.width - newWidth) / 2;
+        currentViewBox.y += (currentViewBox.height - newHeight) / 2;
+        currentViewBox.width = newWidth;
+        currentViewBox.height = newHeight;
+        updateViewBox();
+    }
+
+    function zoomOut() {
+        const newWidth = currentViewBox.width * ZOOM_FACTOR;
+        const newHeight = currentViewBox.height * ZOOM_FACTOR;
+        currentViewBox.x -= (newWidth - currentViewBox.width) / 2;
+        currentViewBox.y -= (newHeight - currentViewBox.height) / 2;
+        currentViewBox.width = newWidth;
+        currentViewBox.height = newHeight;
+        updateViewBox();
+    }
+
+    function resetZoom() {
+        currentViewBox = {
+            x: 0,
+            y: 0,
+            width: initialSvgWidth,
+            height: initialSvgHeight
+        };
+        updateViewBox();
+    }
+
+    // --- Dragging Functions ---
+    function startDrag(event) {
+        // Only drag with left mouse button
+        if (event.button !== 0) return;
+
+        event.preventDefault(); // Prevent default browser drag behavior
+
+        const targetGroup = event.currentTarget;
+        draggedNode = allNodes.find(n => n.id === targetGroup.id);
+
+        if (draggedNode) {
+            targetGroup.classList.add('dragging');
+            const svgPoint = svgElement.createSVGPoint();
+            svgPoint.x = event.clientX;
+            svgPoint.y = event.clientY;
+            const CTM = svgElement.getScreenCTM().inverse(); // Current Transformation Matrix
+            const transformedPoint = svgPoint.matrixTransform(CTM);
+
+            offsetX = transformedPoint.x - draggedNode.x;
+            offsetY = transformedPoint.y - draggedNode.y;
+
+            // Add global event listeners for dragging
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', endDrag);
+        }
+    }
+
+    function drag(event) {
+        if (!draggedNode) return;
+
+        const svgPoint = svgElement.createSVGPoint();
+        svgPoint.x = event.clientX;
+        svgPoint.y = event.clientY;
+        const CTM = svgElement.getScreenCTM().inverse();
+        const transformedPoint = svgPoint.matrixTransform(CTM);
+
+        const newX = transformedPoint.x - offsetX;
+        const newY = transformedPoint.y - offsetY;
+
+        // Update node's position in our data structure
+        draggedNode.x = newX;
+        draggedNode.y = newY;
+
+        // Update SVG element's transform
+        draggedNode.svgGroupElement.setAttribute('transform', `translate(${newX}, ${newY})`);
+
+        // Update connected arrows
+        updateConnectedArrows(draggedNode.id);
+    }
+
+    function endDrag(event) {
+        if (draggedNode) {
+            draggedNode.svgGroupElement.classList.remove('dragging');
+            draggedNode = null;
+        }
+        document.removeEventListener('mousemove', drag);
+        document.removeEventListener('mouseup', endDrag);
+    }
+
+    /**
+     * Updates the positions of arrows connected to a specific node.
+     * @param {string} nodeId - The ID of the node whose connected arrows need updating.
+     */
+    function updateConnectedArrows(nodeId) {
+        const movingNode = allNodes.find(n => n.id === nodeId);
+        if (!movingNode) return;
+
+        allEdges.forEach(edge => {
+            if (edge.sourceNodeId === nodeId) {
+                edge.svgLineElement.setAttribute('x1', movingNode.x + movingNode.width);
+                edge.svgLineElement.setAttribute('y1', movingNode.y + movingNode.height / 2);
+            }
+            if (edge.targetNodeId === nodeId) {
+                edge.svgLineElement.setAttribute('x2', movingNode.x);
+                edge.svgLineElement.setAttribute('y2', movingNode.y + movingNode.height / 2);
+            }
+        });
+    }
+
+    // Attach event listeners for zoom and panel
+    // Added console.log to confirm button element is found
+    if (closePanelBtn) {
+        console.log("Close panel button found:", closePanelBtn);
+        closePanelBtn.addEventListener('click', closeSidePanel);
+    } else {
+        console.error("Close panel button not found!");
+    }
+    zoomInBtn.addEventListener('click', zoomIn);
+    zoomOutBtn.addEventListener('click', zoomOut);
+    resetZoomBtn.addEventListener('click', resetZoom);
+
+    // Main function to draw the flow diagram
+    function drawFlowDiagram(data) {
+        // Clear previous diagram elements
+        svgElement.innerHTML = `
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="8" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#1e3a8a" />
+                </marker>
+            </defs>
+        `;
+        allNodes = [];
+        allEdges = [];
+
+        const jobSteps = data.job;
+        const dfNameToNodeMap = new Map(); // Maps df-name to an array of node objects that *produce* that df-name
+
+        let nodeIdCounter = 0;
+
+        // Categorize nodes for layered layout
+        const inputSteps = jobSteps.filter(step => step.input);
+        const transformSteps = jobSteps.filter(step => step.transform);
+        const outputSteps = jobSteps.filter(step => step.output);
+
+        // Define X positions for columns
+        const inputColumnX = 50;
+        const transformColumnX = inputColumnX + nodeWidth + columnSpacing;
+        const outputColumnX = transformColumnX + nodeWidth + columnSpacing;
+
+        // Function to calculate Y positions for a column
+        const calculateColumnYPositions = (steps) => {
+            const totalHeight = steps.length * nodeHeight + (steps.length - 1) * verticalNodePadding;
+            const startY = (initialSvgHeight - totalHeight) / 2; // Use initialSvgHeight for centering
+            return Array.from({ length: steps.length }, (_, i) => startY + i * (nodeHeight + verticalNodePadding));
+        };
+
+        // Calculate initial Y positions for each column to center them
+        const inputYPositions = calculateColumnYPositions(inputSteps);
+        const transformYPositions = calculateColumnYPositions(transformSteps);
+        const outputYPositions = calculateColumnYPositions(outputSteps);
+
+        // First pass: Create all nodes data and populate maps
+        inputSteps.forEach((step, i) => {
+            const id = `node-${nodeIdCounter++}`;
+            let labelLines = [];
+            const nodeType = 'input';
+            const dfName = step.input['df-name'];
+
+            labelLines.push({ text: '📁 Input', className: 'main-label', alignment: 'middle' });
+            labelLines.push({ text: `Type: ${step.input.type}`, alignment: 'start' });
+            labelLines.push({ text: `Identifier: ${step.input.identifier}`, alignment: 'start' });
+
+            let pathOrTable = '';
+            if (step.input.type === 'file' || step.input.type === 'api') {
+                pathOrTable = `Path: ${step.input.path.split(/[/\\]/).pop()}`;
+            } else if (step.input.type === 'databricks') {
+                pathOrTable = `Table: ${step.input.table}`;
+            }
+            const displayPathOrTable = pathOrTable.length > MAX_TEXT_LENGTH ? pathOrTable.substring(0, MAX_TEXT_LENGTH - 3) + '...' : pathOrTable;
+            labelLines.push({ text: displayPathOrTable, alignment: 'start', fullText: pathOrTable });
+
+            const optionText = step.input.option ? `Options: ${step.input.option.replace(/\n/g, ', ')}` : '';
+            const displayOption = optionText.length > MAX_TEXT_LENGTH ? optionText.substring(0, MAX_TEXT_LENGTH - 3) + '...' : optionText;
+            if (optionText) {
+                labelLines.push({ text: displayOption, alignment: 'start', fullText: optionText });
+            }
+
+            const newNode = {
+                id: id,
+                x: inputColumnX,
+                y: inputYPositions[i],
+                width: nodeWidth,
+                height: nodeHeight,
+                data: {
+                    labelLines: labelLines,
+                    type: nodeType,
+                    dfName: dfName,
+                    rawData: step,
+                    details: step[nodeType],
+                },
+                svgGroupElement: null // Will be set after SVG element is created
+            };
+            allNodes.push(newNode);
+
+            if (!dfNameToNodeMap.has(dfName)) {
+                dfNameToNodeMap.set(dfName, []);
+            }
+            dfNameToNodeMap.get(dfName).push(newNode);
+        });
+
+        transformSteps.forEach((step, i) => {
+            const id = `node-${nodeIdCounter++}`;
+            let labelLines = [];
+            const nodeType = 'transform';
+            const dfName = step.transform['df-name'];
+
+            labelLines.push({ text: '⚙️ Transform', className: 'main-label', alignment: 'middle' });
+
+            let queryDisplay = '';
+            let queryFullText = step.transform.query;
+
+            if (step.transform.query.startsWith('--file')) {
+                const filePath = step.transform.query.replace('--file ', '').trim();
+                const fileName = filePath.split(/[/\\]/).pop();
+                queryDisplay = `File: ${fileName}`;
+                queryFullText = filePath; // Store full path for tooltip
+            } else {
+                queryDisplay = `Query: ${step.transform.query}`;
+            }
+
+            const displayQuery = queryDisplay.length > MAX_TEXT_LENGTH ? queryDisplay.substring(0, MAX_TEXT_LENGTH - 3) + '...' : queryDisplay;
+            labelLines.push({ text: displayQuery, fullText: queryFullText, alignment: 'start' });
+
+            const newNode = {
+                id: id,
+                x: transformColumnX,
+                y: transformYPositions[i],
+                width: nodeWidth,
+                height: nodeHeight,
+                data: {
+                    labelLines: labelLines,
+                    type: nodeType,
+                    dfName: dfName,
+                    rawData: step,
+                    details: step[nodeType],
+                },
+                svgGroupElement: null
+            };
+            allNodes.push(newNode);
+
+            if (!dfNameToNodeMap.has(step.transform.output)) {
+                dfNameToNodeMap.set(step.transform.output, []);
+            }
+            dfNameToNodeMap.get(step.transform.output).push(newNode);
+        });
+
+        outputSteps.forEach((step, i) => {
+            const id = `node-${nodeIdCounter++}`;
+            let labelLines = [];
+            const nodeType = 'output';
+            const dfName = step.output['df-name'];
+
+            labelLines.push({ text: '📤 Output', className: 'main-label', alignment: 'middle' });
+            labelLines.push({ text: `Type: ${step.output.type}`, alignment: 'start' });
+            labelLines.push({ text: `Identifier: ${step.output.identifier}`, alignment: 'start' });
+
+            let tableOrPath = '';
+            if (step.output.type === 'file') {
+                tableOrPath = `Path: ${step.output.path.split(/[/\\]/).pop()}`;
+            } else if (step.output.type === 'databricks' || step.output.type === 'jdbc') {
+                tableOrPath = `Table: ${step.output.table}`;
+            }
+            const displayTableOrPath = tableOrPath.length > MAX_TEXT_LENGTH ? tableOrPath.substring(0, MAX_TEXT_LENGTH - 3) + '...' : tableOrPath;
+            labelLines.push({ text: displayTableOrPath, alignment: 'start', fullText: tableOrPath });
+
+            const schemaOrFormat = step.output.schema ? `Schema: ${step.output.schema}` : (step.output.output_format ? `Format: ${step.output.output_format}` : '');
+            if (schemaOrFormat) {
+                labelLines.push({ text: schemaOrFormat, alignment: 'start' });
+            }
+
+            const newNode = {
+                id: id,
+                x: outputColumnX,
+                y: outputYPositions[i],
+                width: nodeWidth,
+                height: nodeHeight,
+                data: {
+                    labelLines: labelLines,
+                    type: nodeType,
+                    dfName: dfName,
+                    rawData: step,
+                    details: step[nodeType],
+                },
+                svgGroupElement: null
+            };
+            allNodes.push(newNode);
+        });
+
+        // Draw nodes (create SVG elements)
+        allNodes.forEach(node => {
+            drawNodeSvg(node);
+        });
+
+        // Create and draw edges data
+        let edgeIdCounter = 0;
+        allNodes.forEach(currentNode => {
+            if (currentNode.data.type === 'transform') {
+                const transformOutputDf = currentNode.data.rawData.transform.output;
+                const transformInputDfs = currentNode.data.rawData.transform.t_inputs.split(',').map(s => s.trim());
+
+                // Connect sources (inputs) to this transform
+                transformInputDfs.forEach(inputDf => {
+                    const sourceNodes = dfNameToNodeMap.get(inputDf);
+                    if (sourceNodes) {
+                        sourceNodes.forEach(sourceNode => {
+                            if (sourceNode.data.type === 'input' || sourceNode.data.type === 'transform') {
+                                const newEdge = {
+                                    id: `edge-${edgeIdCounter++}`,
+                                    sourceNodeId: sourceNode.id,
+                                    targetNodeId: currentNode.id,
+                                    svgLineElement: null
+                                };
+                                allEdges.push(newEdge);
+                            }
+                        });
+                    }
+                });
+
+                // Connect this transform to its targets (outputs)
+                const targetNodes = allNodes.filter(node => node.data.type === 'output' && node.data.dfName === transformOutputDf);
+                if (targetNodes) {
+                    targetNodes.forEach(targetNode => {
+                        const newEdge = {
+                            id: `edge-${edgeIdCounter++}`,
+                            sourceNodeId: currentNode.id,
+                            targetNodeId: targetNode.id,
+                            svgLineElement: null
+                        };
+                        allEdges.push(newEdge);
+                    });
+                }
+            }
+        });
+
+        // Draw arrows (create SVG elements)
+        allEdges.forEach(edge => {
+            drawArrowSvg(edge);
+        });
+
+        // Set initial viewBox after drawing all elements
+        updateViewBox();
+    }
+
+    // Draw the diagram when the window loads
+    window.onload = () => {
+        drawFlowDiagram(yamlData);
+    };
+</script>
+</body>
+</html>

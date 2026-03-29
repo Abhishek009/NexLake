@@ -1,0 +1,22 @@
+jobName: filter_test
+engine: duckdb
+
+inputs:
+  - name: dataset
+    type: csv
+    table: data/input.csv
+
+transforms:
+  - name: filtered
+    inputs: [dataset]
+    sql: |
+      SELECT id, name
+      FROM dataset
+      WHERE status = 'ACTIVE'
+
+outputs:
+  - name: out
+    input: filtered
+    type: parquet
+    table: data/filter_output.parquet
+    mode: overwrite

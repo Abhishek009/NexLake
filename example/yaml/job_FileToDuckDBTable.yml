@@ -1,0 +1,28 @@
+jobName: FileToDuckDB
+engine: duckdb
+
+job:
+  - input:
+      name: action
+      type: file
+      identifier: local
+      path: "D:/SampleData/input/movies/*"
+      format: csv
+      option: |
+        delimiter=,
+        header=true
+
+  - transform:
+      name: t1
+      inputs: action
+      query: "Select * from action where year > 2000 order by year"
+      output: out-01
+
+  - output:
+      name: out-01
+      type: jdbc
+      identifier: duckdb_local
+      table: action_after_2000
+      schema: ""
+
+

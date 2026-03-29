@@ -1,0 +1,132 @@
+{
+  "nodes" : [
+    {
+      "id" : "mysql_customer_info",
+      "type" : "inputNode",
+      "data" : {
+        "label" : "Input: mysql_customer_info (File)",
+        "details" : {
+          "type" : "input",
+          "description" : "Reads data from file source.",
+          "Identifier" : "local",
+          "config" : {
+            "path" : "D:/SampleData/mock_data/sdf_sample_data.csv",
+            "identifier" : "local",
+            "df-name" : "mysql_customer_info",
+            "option" : "delimiter=,\nheader=true\n",
+            "type" : "file"
+          }
+        },
+        "tInputs" : null
+      },
+      "position" : {
+        "x" : 50,
+        "y" : 50
+      },
+      "style" : {
+        "backgroundColor" : "#D1FAE5",
+        "border" : "1px solid #34D399",
+        "borderRadius" : "8px",
+        "padding" : "10px",
+        "boxShadow" : "0 2px 4px rgba(0,0,0,0.1)",
+        "minWidth" : "150px",
+        "textAlign" : "center"
+      }
+    },
+    {
+      "id" : "t1",
+      "type" : "transformNode",
+      "data" : {
+        "label" : "Transform: t1",
+        "details" : {
+          "type" : "transform",
+          "description" : "Performs data transformation.",
+          "Identifier" : "N/A",
+          "config" : {
+            "df-name" : "t1",
+            "output" : "out-01",
+            "query" : "Select * from mysql_customer_info limit 10",
+            "t_inputs" : "mysql_customer_info"
+          }
+        },
+        "tInputs" : [
+          "mysql_customer_info"
+        ]
+      },
+      "position" : {
+        "x" : 300,
+        "y" : 50
+      },
+      "style" : {
+        "backgroundColor" : "#DBEAFE",
+        "border" : "1px solid #60A5FA",
+        "borderRadius" : "8px",
+        "padding" : "10px",
+        "boxShadow" : "0 2px 4px rgba(0,0,0,0.1)",
+        "minWidth" : "150px",
+        "textAlign" : "center"
+      }
+    },
+    {
+      "id" : "sink-out-01-2",
+      "type" : "outputNode",
+      "data" : {
+        "label" : "Output: out-01 (Jdbc)",
+        "details" : {
+          "type" : "output",
+          "description" : "Writes data to jdbc destination.",
+          "Identifier" : "mysql",
+          "config" : {
+            "identifier" : "mysql",
+            "df-name" : "out-01",
+            "schema" : "sdf_schema",
+            "type" : "jdbc",
+            "table" : "sdf_framework_source_one"
+          }
+        },
+        "tInputs" : null
+      },
+      "position" : {
+        "x" : 600,
+        "y" : 50
+      },
+      "style" : {
+        "backgroundColor" : "#FFEDD5",
+        "border" : "1px solid #FB923C",
+        "borderRadius" : "8px",
+        "padding" : "10px",
+        "boxShadow" : "0 2px 4px rgba(0,0,0,0.1)",
+        "minWidth" : "150px",
+        "textAlign" : "center"
+      }
+    }
+  ],
+  "edges" : [
+    {
+      "id" : "e-t1-sink-out-01-2",
+      "source" : "t1",
+      "target" : "sink-out-01-2",
+      "sourceHandle" : "outputHandle",
+      "targetHandle" : "inputHandle",
+      "animated" : true,
+      "style" : {
+        "stroke" : "#FB923C"
+      }
+    },
+    {
+      "id" : "e-mysql_customer_info-t1-mysql_customer_info",
+      "source" : "mysql_customer_info",
+      "target" : "t1",
+      "sourceHandle" : "outputHandle",
+      "targetHandle" : "target-mysql_customer_info",
+      "animated" : true,
+      "style" : {
+        "stroke" : "#60A5FA"
+      }
+    }
+  ],
+  "pipelineMetadata" : {
+    "name" : "FileToMysql",
+    "description" : "Data pipeline generated from ETL YAML (engine: spark)."
+  }
+}

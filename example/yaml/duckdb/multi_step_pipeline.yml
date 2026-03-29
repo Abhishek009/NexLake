@@ -1,0 +1,28 @@
+jobName: multi_step_pipeline
+engine: duckdb
+
+inputs:
+  - name: input_file
+    type: parquet
+    table: data/input.parquet
+
+transforms:
+  - name: t1
+    inputs: [input_file]
+    sql: |
+      SELECT *, amount * 2 AS double_amount
+      FROM input_file
+
+  - name: t2
+    inputs: [t1]
+    sql: |
+      SELECT id, double_amount
+      FROM t1
+      WHERE double_amount > 100
+
+outputs:
+  - name: final_output
+    input: t2
+    type: parquet
+    table: data/output.parquet
+    mode: overwrite

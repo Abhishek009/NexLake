@@ -1,0 +1,47 @@
+# Input: Sql Database
+# Transform: join operation
+# Output: Writes the output of transformation  to mysql table
+
+jobName: mysqltolocal
+engine: spark
+job:
+  - input:
+      name: sdf_framework_source_one
+      type: jdbc
+      identifier: mysql
+      table: sdf_framework_source_one
+      schema: sdf_schema
+
+  - input:
+      name: sdf_framework_source_two
+      type: jdbc
+      identifier: mysql
+      table: sdf_framework_source_two
+      schema: sdf_schema
+
+  - transform:
+      name: t1
+      inputs: sdf_framework_source_one,sdf_framework_source_two
+      query: "select
+          x.id as id,
+          x.first_name as x_first_name,
+          x.last_name as x_last_name,
+          x.cardnumber as x_cardnumber,
+          x.accountnumber as x_accountnumber,
+          y.first_name as y_first_name,
+          y.last_name as y_last_name,
+          y.cardnumber as y_cardnumber,
+          y.accountnumber as y_accountnumber
+          FROM sdf_framework_source_one x
+          LEFT JOIN sdf_framework_source_two y
+          on x.id=y.id "
+      output: out-01
+
+  - output:
+      name: out-01
+      type: jdbc
+      identifier: mysql
+      table: spark_sdf_join
+      schema: sdf_schema
+      mode: overwrite
+

@@ -1,0 +1,26 @@
+jobName: multi_output_test
+engine: duckdb
+
+inputs:
+  - name: dataset
+    type: parquet
+    table: data/input.parquet
+
+transforms:
+  - name: t1
+    inputs: [dataset]
+    sql: |
+      SELECT * FROM dataset
+
+outputs:
+  - name: out1
+    input: t1
+    type: parquet
+    table: data/out1.parquet
+    mode: overwrite
+
+  - name: out2
+    input: t1
+    type: parquet
+    table: data/out2.parquet
+    mode: overwrite

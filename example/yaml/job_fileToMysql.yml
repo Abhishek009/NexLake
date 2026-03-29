@@ -1,0 +1,29 @@
+# Input: Sql Database
+# Transform: Select operation
+# Output: Writes the output of transformation  to local file
+
+jobName: FileToMysql
+engine: spark
+job:
+  - input:
+      name: mysql_customer_info
+      type: file
+      identifier: local
+      path: "/sample_data/action.csv"
+      option: |
+        delimiter=,
+        header=true
+
+  - transform:
+      name: t1
+      inputs: mysql_customer_info
+      query: "Select count(*),year from mysql_customer_info group by year"
+      output: out-01
+
+  - output:
+      name: out-01
+      type: file
+      identifier: mysql
+      table: sdf_framework_source_one
+      schema: sdf_schema
+

@@ -1,0 +1,22 @@
+jobName: aggregation_test
+engine: duckdb
+
+inputs:
+  - name: sales
+    type: parquet
+    table: data/sales.parquet
+
+transforms:
+  - name: agg
+    inputs: [sales]
+    sql: |
+      SELECT customer_id, SUM(amount) AS total_sales
+      FROM sales
+      GROUP BY customer_id
+
+outputs:
+  - name: agg_out
+    input: agg
+    type: parquet
+    table: data/agg_output.parquet
+    mode: overwrite
